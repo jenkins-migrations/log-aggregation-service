@@ -1,0 +1,44 @@
+---
+name: Maven stage disabling example
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: >-
+          actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        # v4.2.2
+      - name: Show Maven and Git metadata
+        shell: bash
+        run: |
+          version_a="$(
+            ./mvnw org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate \
+              -Dexpression=project.version | grep -v '\[' | tail -1
+          )"
+          pom_group_id="$(
+            ./mvnw help:evaluate -Dexpression=project.groupId -q -DforceStdout
+          )"
+          pom_version="$(
+            ./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout
+          )"
+          build_release_version="${pom_version/-SNAPSHOT/}"
+          git_tag_commit="$(git describe --tags --always)"
+          is_snapshot=false
+          [[ "$version_a" == *-SNAPSHOT ]] && is_snapshot=true
+          printf '%s\n' \
+            "version_a: $version_a" \
+            "POM_GROUP_ID: $pom_group_id" \
+            "POM_VERSION: $pom_version" \
+            "BUILD_RELEASE_VERSION: $build_release_version" \
+            "GIT_TAG_COMMIT: $git_tag_commit" \
+            "IS_SNAPSHOT: $is_snapshot"
+          env | sort
+      - name: Build
+        if: ${{ false }}
+        run: ./mvnw -B clean package -DskipTests

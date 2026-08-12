@@ -1,0 +1,26 @@
+---
+name: Branch conditions example
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  conditions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: One
+        run: echo "Hello"
+      - name: Evaluate master
+        if: github.ref == 'refs/heads/master'
+        run: |
+          echo "World"
+          echo "Heal it"
+      - name: Branch test
+        if: github.ref != 'refs/heads/master'
+        run: echo "Not master branch"
+      - name: Expression test
+        if: ${{ false }}
+        run: echo "This should be skipped"

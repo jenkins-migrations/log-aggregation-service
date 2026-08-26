@@ -1,0 +1,84 @@
+# Migrated from stagedisabling/Jenkinsfile - see .github/ci-archive/MIGRATION-README.md
+# Source: https://gist.github.com/merikan/228cdb1893fca91f0663bab7b095757c (Public Gist - Educational Use)
+# Original: Pipeline with stage disabling and environment variable handling
+name: Stage Disabling
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  init:
+    name: Init
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Groovy `readMavenPom().getGroupId()/.getVersion()` and the Maven help
+      # plugin `evaluate` calls are expanded inline using the Maven CLI.
+      - name: Resolve Maven and Git variables
+        id: vars
+        run: |
+          POM_GROUP_ID=$(./mvnw -q org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.groupId -DforceStdout)
+          POM_VERSION=$(./mvnw -q org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version -DforceStdout)
+          BUILD_RELEASE_VERSION="${POM_VERSION%-SNAPSHOT}"
+          GIT_TAG_COMMIT=$(git describe --tags --always)
+          if [[ "$POM_VERSION" == *-SNAPSHOT ]]; then IS_SNAPSHOT=true; else IS_SNAPSHOT=false; fi
+          version_a="$POM_VERSION"
+          {
+            echo "POM_GROUP_ID=$POM_GROUP_ID"
+            echo "POM_VERSION=$POM_VERSION"
+            echo "BUILD_RELEASE_VERSION=$BUILD_RELEASE_VERSION"
+            echo "GIT_TAG_COMMIT=$GIT_TAG_COMMIT"
+            echo "IS_SNAPSHOT=$IS_SNAPSHOT"
+            echo "version_a=$version_a"
+          } >> "$GITHUB_ENV"
+
+      - name: Print version_a
+        run: echo "version_a - ${{ env.version_a }}"
+
+      - name: Print IS_SNAPSHOT type
+        run: echo "IS_SNAPSHOT is a boolean - ${{ env.IS_SNAPSHOT }}"
+
+      - name: Print sorted environment
+        run: env | sort
+
+      - name: Print variable params
+        run: echo "Variable params - ${{ toJSON(github.event.inputs) }}"
+
+  build:
+    name: Build
+    needs: init
+    runs-on: ubuntu-latest
+    # Original stage used `when { expression { false } }` to permanently disable this stage.
+    # Preserved as an opt-in toggle: set the repository variable ENABLE_BUILD_STAGE to
+    # "true" to re-enable it.
+    if: vars.ENABLE_BUILD_STAGE == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Package (skip tests)
+        run: ./mvnw -B clean package -DskipTests
+
+      - name: Archive jar
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jar
+          path: '**/target/*.jar'

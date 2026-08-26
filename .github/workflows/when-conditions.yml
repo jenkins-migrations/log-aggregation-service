@@ -1,0 +1,51 @@
+# Migrated from whenconditions/Jenkinsfile - see .github/ci-archive/MIGRATION-README.md
+# Source: https://github.com/jenkinsci/pipeline-examples (MIT License)
+# Original: When conditions and branch logic
+name: When Conditions
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  one:
+    name: One
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hello
+        run: echo "Hello"
+
+  evaluate-master:
+    name: Evaluate Master
+    needs: one
+    # Original Jenkins `when { branch "master" }` ran only on the master branch
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: World
+        run: echo "World"
+      - name: Heal it
+        run: echo "Heal it"
+
+  branch-test:
+    name: Branch Test
+    needs: one
+    # Original Jenkins `when { not { branch "master" } }` ran on every branch except master
+    if: github.ref != 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Not master branch
+        run: echo "Not master branch"
+
+  expression-test:
+    name: Expression Test
+    needs: one
+    runs-on: ubuntu-latest
+    steps:
+      # Original Jenkins `when { expression { ... return false } }` always skipped this stage
+      - name: Should I run?
+        run: echo "Should I run?"
